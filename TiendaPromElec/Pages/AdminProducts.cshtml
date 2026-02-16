@@ -1,0 +1,282 @@
+﻿@page
+@{
+    ViewData["Title"] = "Administración de Productos";
+}
+
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2><i class="bi bi-box-seam"></i> Inventario</h2>
+        <button class="btn btn-outline-secondary" onclick="loadProducts()">
+            <i class="bi bi-arrow-clockwise"></i> Recargar
+        </button>
+    </div>
+
+    <div class="card mb-5 shadow-sm border-primary">
+        <div class="card-header bg-primary text-white">
+            <h5 class="mb-0"><i class="bi bi-plus-lg"></i> Agregar Nuevo Producto</h5>
+        </div>
+        <div class="card-body bg-light">
+            <form id="createProductForm">
+                <div class="row g-3">
+                    <div class="col-md-4">
+                        <label class="form-label">Nombre</label>
+                        <input type="text" id="newName" class="form-control" required>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Marca</label>
+                        <input type="text" id="newBrand" class="form-control" required>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Categoría</label>
+                        <select id="newCatId" class="form-select" required>
+                            <option value="">Cargando...</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">Precio</label>
+                        <input type="number" id="newPrice" class="form-control" step="0.01" required>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">Stock</label>
+                        <input type="number" id="newStock" class="form-control" required>
+                    </div>
+                    <div class="col-md-8">
+                        <label class="form-label">URL Imagen</label>
+                        <input type="url" id="newImg" class="form-control">
+                    </div>
+                    <div class="col-md-12">
+                        <label class="form-label">Descripción</label>
+                        <textarea id="newDesc" class="form-control" rows="1"></textarea>
+                    </div>
+                    <div class="col-12 text-end">
+                        <button type="submit" class="btn btn-success">Guardar Nuevo</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="card shadow-sm">
+        <div class="card-body">
+            <table class="table table-hover align-middle">
+                <thead class="table-light">
+                    <tr>
+                        <th>Imagen</th>
+                        <th>Producto</th>
+                        <th>Categoría</th>
+                        <th>Precio</th>
+                        <th>Stock</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody id="productsTableBody"></tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="editModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-warning">
+                <h5 class="modal-title">Editar Producto</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="editProductForm">
+                    <input type="hidden" id="editId"> <div class="row g-3">
+                        <div class="col-md-6">
+                            <label>Nombre</label>
+                            <input type="text" id="editName" class="form-control" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label>Marca</label>
+                            <input type="text" id="editBrand" class="form-control" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label>Categoría</label>
+                            <select id="editCatId" class="form-select" required></select>
+                        </div>
+                        <div class="col-md-3">
+                            <label>Precio</label>
+                            <input type="number" id="editPrice" class="form-control" step="0.01" required>
+                        </div>
+                        <div class="col-md-3">
+                            <label>Stock</label>
+                            <input type="number" id="editStock" class="form-control" required>
+                        </div>
+                        <div class="col-12">
+                            <label>URL Imagen</label>
+                            <input type="url" id="editImg" class="form-control">
+                        </div>
+                        <div class="col-12">
+                            <label>Descripción</label>
+                            <textarea id="editDesc" class="form-control" rows="2"></textarea>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" onclick="saveEdit()">Guardar Cambios</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        const API_URL = '/api/Product';
+        const CAT_URL = '/api/Category'; // Asumiendo que tienes un CategoryController
+        let categoriesList = [];
+
+        document.addEventListener("DOMContentLoaded", async () => {
+            const token = localStorage.getItem("token");
+            if (!token) { window.location.href = "/Login"; return; }
+
+            await loadCategories(); // 1. Cargar categorías primero
+            loadProducts();         // 2. Cargar productos
+        });
+
+        // --- CARGAR CATEGORÍAS (Para los Selects) ---
+        async function loadCategories() {
+            try {
+                const res = await fetch(CAT_URL);
+                if(res.ok) {
+                    categoriesList = await res.json();
+                    fillSelect("newCatId");
+                    fillSelect("editCatId");
+                }
+            } catch(e) { console.error("Error cargando categorías"); }
+        }
+
+        function fillSelect(elementId) {
+            const select = document.getElementById(elementId);
+            select.innerHTML = '<option value="">Seleccione...</option>';
+            categoriesList.forEach(c => {
+                select.innerHTML += `<option value="${c.id}">${c.name}</option>`;
+            });
+        }
+
+        // --- CARGAR PRODUCTOS ---
+        async function loadProducts() {
+            const token = localStorage.getItem("token");
+            const tbody = document.getElementById("productsTableBody");
+            tbody.innerHTML = '<tr><td colspan="6" class="text-center">Cargando...</td></tr>';
+
+            try {
+                const res = await fetch(API_URL, { headers: { 'Authorization': 'Bearer ' + token } });
+                const products = await res.json();
+
+                tbody.innerHTML = "";
+                products.forEach(p => {
+                    // Buscamos el nombre de la categoría usando el ID
+                    const catName = categoriesList.find(c => c.id === p.categoryId)?.name || "ID: " + p.categoryId;
+
+                    // CORRECCIÓN IMAGEN: this.onerror=null evita el ciclo infinito
+                    const imgHtml = `<img src="${p.imageUrl}" width="50" height="50" style="object-fit:cover"
+                                     onerror="this.onerror=null; this.src='https://via.placeholder.com/50?text=N/A'">`;
+
+                    tbody.innerHTML += `
+                        <tr>
+                            <td>${imgHtml}</td>
+                            <td>${p.name}<br><small class="text-muted">${p.brand}</small></td>
+                            <td><span class="badge bg-secondary">${catName}</span></td>
+                            <td>$${p.price}</td>
+                            <td>
+                                <span class="badge ${p.stock < 5 ? 'bg-danger' : 'bg-success'}">${p.stock}</span>
+                            </td>
+                            <td>
+                                <button class="btn btn-sm btn-warning me-1" onclick='openEdit(${JSON.stringify(p)})'>
+                                    <i class="bi bi-pencil-square"></i>
+                                </button>
+                                <button class="btn btn-sm btn-danger" onclick="deleteProduct(${p.id})">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </td>
+                        </tr>
+                    `;
+                });
+            } catch(e) { tbody.innerHTML = '<tr><td colspan="6">Error de conexión</td></tr>'; }
+        }
+
+        // --- CREAR PRODUCTO ---
+        document.getElementById("createProductForm").addEventListener("submit", async (e) => {
+            e.preventDefault();
+            const product = {
+                name: document.getElementById("newName").value,
+                brand: document.getElementById("newBrand").value,
+                categoryId: parseInt(document.getElementById("newCatId").value), // Toma valor del select
+                price: parseFloat(document.getElementById("newPrice").value),
+                stock: parseInt(document.getElementById("newStock").value),
+                imageUrl: document.getElementById("newImg").value,
+                description: document.getElementById("newDesc").value
+            };
+            await sendRequest(API_URL, 'POST', product);
+            document.getElementById("createProductForm").reset();
+        });
+
+        // --- ABRIR MODAL DE EDICIÓN ---
+        function openEdit(product) {
+            document.getElementById("editId").value = product.id;
+            document.getElementById("editName").value = product.name;
+            document.getElementById("editBrand").value = product.brand;
+            document.getElementById("editCatId").value = product.categoryId; // Selecciona la opción correcta
+            document.getElementById("editPrice").value = product.price;
+            document.getElementById("editStock").value = product.stock;
+            document.getElementById("editImg").value = product.imageUrl;
+            document.getElementById("editDesc").value = product.description;
+
+            new bootstrap.Modal(document.getElementById('editModal')).show();
+        }
+
+        // --- GUARDAR EDICIÓN (PUT) ---
+        async function saveEdit() {
+            const id = document.getElementById("editId").value;
+            const product = {
+                id: id,
+                name: document.getElementById("editName").value,
+                brand: document.getElementById("editBrand").value,
+                categoryId: parseInt(document.getElementById("editCatId").value),
+                price: parseFloat(document.getElementById("editPrice").value),
+                stock: parseInt(document.getElementById("editStock").value),
+                imageUrl: document.getElementById("editImg").value,
+                description: document.getElementById("editDesc").value
+            };
+
+            await sendRequest(`${API_URL}/${id}`, 'PUT', product);
+
+            // Cerrar modal
+            const modalEl = document.getElementById('editModal');
+            const modal = bootstrap.Modal.getInstance(modalEl);
+            modal.hide();
+        }
+
+        // --- ELIMINAR ---
+        async function deleteProduct(id) {
+            if(confirm("¿Eliminar producto?")) {
+                await sendRequest(`${API_URL}/${id}`, 'DELETE');
+            }
+        }
+
+        // --- FUNCIÓN GENÉRICA PARA PETICIONES ---
+        async function sendRequest(url, method, body = null) {
+            const token = localStorage.getItem("token");
+            try {
+                const opts = {
+                    method: method,
+                    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token }
+                };
+                if(body) opts.body = JSON.stringify(body);
+
+                const res = await fetch(url, opts);
+                if(res.ok) {
+                    loadProducts(); // Recargar tabla
+                    if(method !== 'DELETE') alert("Operación exitosa");
+                } else {
+                    alert("Error en la operación: " + await res.text());
+                }
+            } catch(e) { alert("Error de red"); }
+        }
+    </script>
+}

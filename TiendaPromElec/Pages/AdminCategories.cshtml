@@ -1,0 +1,144 @@
+﻿@page
+@{
+    ViewData["Title"] = "Gestión de Categorías";
+}
+
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-md-7">
+            <div class="card shadow-sm">
+                <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">Categorías Existentes</h5>
+                    <button class="btn btn-sm btn-outline-light" onclick="loadCategories()">
+                        <i class="bi bi-arrow-clockwise"></i>
+                    </button>
+                </div>
+                <div class="card-body p-0">
+                    <table class="table table-hover mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>ID</th>
+                                <th>Nombre</th>
+                                <th class="text-end">Acción</th>
+                            </tr>
+                        </thead>
+                        <tbody id="catTableBody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-5">
+            <div class="card shadow-sm border-success">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0"><i class="bi bi-plus-circle"></i> Nueva Categoría</h5>
+                </div>
+                <div class="card-body">
+                    <form id="addCatForm">
+                        <div class="mb-3">
+                            <label class="form-label">Nombre de la Categoría</label>
+                            <input type="text" id="catName" class="form-control" required placeholder="Ej: Tablets">
+                            <small class="text-muted">Asegúrate de que no exista previamente.</small>
+                        </div>
+                        <div class="d-grid">
+                            <button type="submit" class="btn btn-success">Guardar Categoría</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <div class="alert alert-info mt-4">
+                <i class="bi bi-info-circle"></i> <strong>Nota:</strong>
+                No es posible eliminar categorías que ya tengan productos asignados para mantener la integridad del historial de ventas.
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const API_URL = '/api/Category';
+
+    document.addEventListener("DOMContentLoaded", () => {
+        checkAdmin();
+        loadCategories();
+    });
+
+    function checkAdmin() {
+        const token = localStorage.getItem("token");
+        if (!token) { window.location.href = "/Login"; return; }
+        // Validación simple de rol en cliente (seguridad real está en backend)
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        if (payload.role !== "Admin") { window.location.href = "/"; }
+    }
+
+    // 1. CARGAR
+    async function loadCategories() {
+        const tbody = document.getElementById("catTableBody");
+        tbody.innerHTML = "<tr><td colspan='3' class='text-center'>Cargando...</td></tr>";
+
+        try {
+            const res = await fetch(API_URL);
+            const categories = await res.json();
+
+            tbody.innerHTML = "";
+            categories.forEach(c => {
+                tbody.innerHTML += `
+                    <tr>
+                        <td>${c.id}</td>
+                        <td class="fw-bold">${c.name}</td>
+                        <td class="text-end">
+                            <button class="btn btn-sm btn-outline-danger" onclick="deleteCategory(${c.id})">
+                                <i class="bi bi-trash"></i> Eliminar
+                            </button>
+                        </td>
+                    </tr>`;
+            });
+        } catch (err) { console.error(err); }
+    }
+
+    // 2. AGREGAR
+    document.getElementById("addCatForm").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const name = document.getElementById("catName").value;
+        const token = localStorage.getItem("token");
+
+        try {
+            const res = await fetch(API_URL, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Bearer ' + token
+                },
+                body: JSON.stringify({ name: name }) // Enviamos objeto Category
+            });
+
+            if (res.ok) {
+                alert("Categoría creada");
+                document.getElementById("catName").value = "";
+                loadCategories();
+            } else {
+                alert("Error: " + await res.text());
+            }
+        } catch (err) { alert("Error de conexión"); }
+    });
+
+    // 3. ELIMINAR
+    async function deleteCategory(id) {
+        if (!confirm("¿Seguro que deseas eliminar esta categoría?")) return;
+
+        const token = localStorage.getItem("token");
+        try {
+            const res = await fetch(`${API_URL}/${id}`, {
+                method: 'DELETE',
+                headers: { 'Authorization': 'Bearer ' + token }
+            });
+
+            if (res.ok) {
+                loadCategories();
+            } else {
+                // Aquí atrapamos el error del backend si tiene productos
+                alert("No se pudo eliminar: " + await res.text());
+            }
+        } catch (err) { alert("Error de conexión"); }
+    }
+</script>

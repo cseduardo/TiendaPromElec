@@ -1,11 +1,8 @@
-using System.Collections.Generic;
+namespace ProductApi.Models;
 
-namespace ProductApi.Models
+public class Category
 {
-    public class Category
-    {
-        public long Id { get; set; }
-        public required string Name { get; set; }
-        public ICollection<Product> Products { get; set; }
-    }
+    public long Id { get; set; }
+    public required string Name { get; set; }
+    public ICollection<Product> Products { get; set; }
 }

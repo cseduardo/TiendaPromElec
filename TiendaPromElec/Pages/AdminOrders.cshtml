@@ -1,0 +1,102 @@
+﻿@page
+@{
+    ViewData["Title"] = "Administrar Pedidos";
+}
+
+<div class="container mt-4">
+    <h2 class="mb-4 text-danger"><i class="bi bi-shield-lock"></i> Panel de Ventas (Admin)</h2>
+
+    <div class="table-responsive">
+        <table class="table table-bordered table-hover" id="adminTable">
+            <thead class="table-dark">
+                <tr>
+                    <th>ID</th>
+                    <th>Fecha</th>
+                    <th>Cliente</th>
+                    <th>Total</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody id="ordersBody"></tbody>
+        </table>
+    </div>
+</div>
+
+<div class="modal fade" id="detailModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Detalle de Orden</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="modalContent"></div>
+        </div>
+    </div>
+</div>
+
+<script>
+    let allOrders = [];
+
+    document.addEventListener("DOMContentLoaded", async () => {
+        const token = localStorage.getItem("token");
+        // Verificar rol básico (mejor validación se hace en backend)
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        if(payload.role !== "Admin") {
+            alert("Acceso denegado");
+            window.location.href = "/";
+            return;
+        }
+
+            const res = await fetch('/api/Order', {
+        headers: { 'Authorization': 'Bearer ' + token }
+    });
+
+        if(res.ok) {
+            allOrders = await res.json();
+            renderAdminTable(allOrders);
+        }
+    });
+
+    function renderAdminTable(orders) {
+        const tbody = document.getElementById("ordersBody");
+        tbody.innerHTML = "";
+
+        orders.forEach(order => {
+            const date = new Date(order.orderDate).toLocaleDateString();
+            const customerName = order.customer ? order.customer.fullName : "Cliente Desconocido";
+
+            tbody.innerHTML += `
+                <tr>
+                    <td>${order.id}</td>
+                    <td>${date}</td>
+                    <td>${customerName} <br> <small class="text-muted">${order.customer?.email || ''}</small></td>
+                    <td class="fw-bold">$${order.totalAmount}</td>
+                    <td>
+                        <button class="btn btn-info btn-sm" onclick="showDetails(${order.id})">
+                            <i class="bi bi-eye"></i> Ver Productos
+                        </button>
+                    </td>
+                </tr>
+            `;
+        });
+    }
+
+    function showDetails(orderId) {
+        const order = allOrders.find(o => o.id === orderId);
+        const content = document.getElementById("modalContent");
+
+        let html = `<ul class="list-group">`;
+        order.items.forEach(item => {
+            html += `
+                <li class="list-group-item d-flex justify-content-between align-items-center">
+                    ${item.product.name} (x${item.quantity})
+                    <span>$${item.unitPrice * item.quantity}</span>
+                </li>`;
+        });
+        html += `</ul>`;
+        html += `<h5 class="text-end mt-3">Total: $${order.totalAmount}</h5>`;
+
+        content.innerHTML = html;
+        new bootstrap.Modal(document.getElementById('detailModal')).show();
+    }
+</script>

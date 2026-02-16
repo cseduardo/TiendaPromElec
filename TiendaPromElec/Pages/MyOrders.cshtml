@@ -1,0 +1,93 @@
+﻿@page
+@{
+    ViewData["Title"] = "Mis Pedidos";
+}
+
+<div class="container mt-4">
+    <h2 class="mb-4"><i class="bi bi-bag-check"></i> Mis Compras</h2>
+
+    <div id="loading" class="text-center">
+        <div class="spinner-border text-primary" role="status"></div>
+        <p>Cargando tus pedidos...</p>
+    </div>
+
+    <div id="ordersContainer" class="accordion" id="ordersAccordion">
+    </div>
+
+    <div id="noOrders" class="alert alert-warning mt-3" style="display:none">
+        Aún no has realizado compras. <a href="/">Ir al catálogo</a>.
+    </div>
+</div>
+
+<script>
+    document.addEventListener("DOMContentLoaded", async () => {
+        const token = localStorage.getItem("token");
+        if(!token) { window.location.href = "/Login"; return; }
+
+        try {
+                const res = await fetch('/api/Order', {
+        headers: { 'Authorization': 'Bearer ' + token }
+    });
+
+            if(res.ok) {
+                const orders = await res.json();
+                renderOrders(orders);
+            } else {
+                alert("Error al cargar órdenes");
+            }
+        } catch(err) { console.error(err); }
+
+        document.getElementById("loading").style.display = "none";
+    });
+
+    function renderOrders(orders) {
+        const container = document.getElementById("ordersContainer");
+
+        if (orders.length === 0) {
+            document.getElementById("noOrders").style.display = "block";
+            return;
+        }
+
+        let html = "";
+        orders.forEach((order, index) => {
+            // Calcular total de la orden sumando items
+            // (Ojo: Si tu backend ya manda el OrderTotal, úsalo directo. Aquí lo calculo por si acaso)
+            let total = order.totalAmount || 0;
+            const date = new Date(order.orderDate).toLocaleDateString() + " " + new Date(order.orderDate).toLocaleTimeString();
+
+            // Generar lista de productos
+            let itemsHtml = order.items.map(item => `
+                <li class="list-group-item d-flex justify-content-between align-items-center">
+                    <div>
+                        <strong>${item.product ? item.product.name : 'Producto Eliminado'}</strong>
+                        <br><small class="text-muted">Cantidad: ${item.quantity}</small>
+                    </div>
+                    <span class="badge bg-primary rounded-pill">
+                        ${(item.unitPrice * item.quantity).toLocaleString('es-MX', {style:'currency', currency:'MXN'})}
+                    </span>
+                </li>
+            `).join("");
+
+            // Estructura del Acordeón
+            html += `
+            <div class="accordion-item">
+                <h2 class="accordion-header" id="heading${index}">
+                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapse${index}">
+                        <div class="d-flex w-100 justify-content-between me-3">
+                            <span><strong>Orden #${order.id}</strong> - ${date}</span>
+                            <span class="text-success fw-bold">Total: $${total}</span>
+                        </div>
+                    </button>
+                </h2>
+                <div id="collapse${index}" class="accordion-collapse collapse" data-bs-parent="#ordersAccordion">
+                    <div class="accordion-body">
+                        <ul class="list-group">
+                            ${itemsHtml}
+                        </ul>
+                    </div>
+                </div>
+            </div>`;
+        });
+        container.innerHTML = html;
+    }
+</script>

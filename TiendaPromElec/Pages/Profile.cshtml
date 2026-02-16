@@ -1,0 +1,57 @@
+﻿@page
+@{
+    ViewData["Title"] = "Mi Perfil";
+}
+
+<div class="container mt-4">
+    <h3>Editar Mi Perfil</h3>
+    <form id="profileForm">
+        <div class="mb-3"><label>Nombre</label><input id="fullName" class="form-control" required /></div>
+        <div class="mb-3"><label>Teléfono</label><input id="phone" class="form-control" required /></div>
+        <div class="mb-3"><label>Dirección</label><input id="address" class="form-control" required /></div>
+        <div class="mb-3">
+            <label>Nueva Contraseña (Dejar en blanco para no cambiar)</label>
+            <input type="password" id="password" class="form-control" />
+        </div>
+        <button type="submit" class="btn btn-warning">Guardar Cambios</button>
+    </form>
+</div>
+
+<script>
+    const token = localStorage.getItem("token");
+
+    // 1. Cargar datos actuales
+    document.addEventListener("DOMContentLoaded", async () => {
+        const res = await fetch('/api/Auth/me', { headers: { 'Authorization': 'Bearer ' + token } });
+        if(res.ok) {
+            const data = await res.json();
+            document.getElementById("fullName").value = data.fullName;
+            document.getElementById("phone").value = data.phone;
+            document.getElementById("address").value = data.address;
+        }
+    });
+
+    // 2. Guardar cambios
+    document.getElementById("profileForm").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const data = {
+            email: "ignore@me.com", // El DTO pide email pero no lo cambiamos aquí
+            fullName: document.getElementById("fullName").value,
+            phone: document.getElementById("phone").value,
+            address: document.getElementById("address").value,
+            password: document.getElementById("password").value
+        };
+
+        const res = await fetch('/api/Auth/update-profile', {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': 'Bearer ' + token
+            },
+            body: JSON.stringify(data)
+        });
+
+        if(res.ok) alert("Perfil actualizado correctamente");
+        else alert("Error al actualizar");
+    });
+</script>

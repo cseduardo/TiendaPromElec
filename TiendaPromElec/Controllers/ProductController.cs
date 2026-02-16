@@ -1,114 +1,112 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
-using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 using ProductApi.Models;
+using TiendaPromElec.DTOs;
+using TiendaPromElec.Repositories;
 
-namespace TiendaPromElec.Controllers
+namespace TiendaPromElec.Controllers;
+
+[Route("api/[controller]")]
+[ApiController]
+public class ProductController : ControllerBase
 {
-    [Route("api/[controller]")]
-    [ApiController]
-    public class ProductController : ControllerBase
+    private readonly IProductRepository _repository;
+    private readonly ILogger<ProductController> _logger;
+
+    public ProductController(IProductRepository repository, ILogger<ProductController> logger)
     {
-        private readonly AppDbContext _context;
-        private readonly ILogger<ProductController> _logger;
+        _repository = repository;
+        _logger = logger;
+    }
 
-        public ProductController(AppDbContext context, ILogger<ProductController> logger)
+    // GET: api/Product
+    [HttpGet]
+    public async Task<ActionResult<IEnumerable<Product>>> GetProducts()
+    {
+        return Ok(await _repository.GetAllAsync());
+    }
+
+    // GET: api/Product/5
+    [HttpGet("{id}")]
+    public async Task<ActionResult<Product>> GetProduct(long id)
+    {
+        // Usamos LogInformation para registrar un evento de rutina
+        _logger.LogInformation("Iniciando búsqueda del producto con ID: {ProductoId}", id);
+
+        var product = await _repository.GetByIdAsync(id);
+
+        if (product == null)
         {
-            _context = context;
-            _logger = logger; // Initialize the logger if needed
+            // Usamos LogWarning para registrar un evento de advertencia
+            _logger.LogWarning("Producto con ID {ProductoId} no encontrado", id);
+            return NotFound();
+        }
+        _logger.LogInformation("Producto con ID: {ProductoId} encontrado exitosamente.", id);
+        return Ok(product);
+    }
+
+    // PUT: api/Product/5
+    // To protect from overposting attacks, see https://go.microsoft.com/fwlink/?linkid=2123754
+    [HttpPut("{id}")]
+    [Authorize(Roles = "Admin")]
+    public async Task<IActionResult> PutProduct(long id, UpdateProductDto dto)
+    {
+        // Verificamos si existe antes de intentar actualizar
+        var exists = await _repository.ExistsAsync(id);
+        if (!exists) return NotFound();
+
+        var product = await _repository.GetByIdAsync(id);
+        product.Name = dto.Name;
+        product.Description = dto.Description;
+        product.Brand = dto.Brand;
+        product.Price = dto.Price;
+        product.Stock = dto.Stock;
+        product.ImageUrl = dto.ImageUrl;
+        product.CategoryId = dto.CategoryId;
+
+        try
+        {
+            await _repository.UpdateAsync(product);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error actualizando producto {Id}", id);
+            return StatusCode(500, "Error interno del servidor");
         }
 
-        // GET: api/Product
-        [HttpGet]
-        public async Task<ActionResult<IEnumerable<Product>>> GetProducts()
+        return NoContent();
+    }
+
+    // POST: api/Product
+    // To protect from overposting attacks, see https://go.microsoft.com/fwlink/?linkid=2123754
+    [HttpPost]
+    [Authorize(Roles = "Admin")]
+    public async Task<ActionResult<Product>> PostProduct(CreateProductDto dto)
+    {
+        var product = new Product
         {
-            return await _context.Products.ToListAsync();
-        }
+            Name = dto.Name,
+            Description = dto.Description,
+            Brand = dto.Brand,
+            Price = dto.Price,
+            Stock = dto.Stock,
+            ImageUrl = dto.ImageUrl,
+            CategoryId = dto.CategoryId
+        };
+        await _repository.AddAsync(product);
 
-        // GET: api/Product/5
-        [HttpGet("{id}")]
-        public async Task<ActionResult<Product>> GetProduct(long id)
-        {
-            // Usamos LogInformation para registrar un evento de rutina
-            _logger.LogInformation("Iniciando búsqueda del producto con ID: {ProductoId}", id);
+        return CreatedAtAction("GetProduct", new { id = product.Id }, product);
+    }
 
-            var product = await _context.Products.FindAsync(id);
+    // DELETE: api/Product/5
+    [HttpDelete("{id}")]
+    [Authorize(Roles = "Admin")]
+    public async Task<IActionResult> DeleteProduct(long id)
+    {
+        var exists = await _repository.ExistsAsync(id);
+        if (!exists) return NotFound();
 
-            if (product == null)
-            {
-                // Usamos LogWarning para registrar un evento de advertencia
-                _logger.LogWarning("Producto con ID {ProductoId} no encontrado", id);
-                return NotFound();
-            }
-            _logger.LogInformation("Producto con ID: {ProductoId} encontrado exitosamente.", id);
-            return product;
-        }
-
-        // PUT: api/Product/5
-        // To protect from overposting attacks, see https://go.microsoft.com/fwlink/?linkid=2123754
-        [HttpPut("{id}")]
-        public async Task<IActionResult> PutProduct(long id, Product product)
-        {
-            if (id != product.Id)
-            {
-                return BadRequest();
-            }
-
-            _context.Entry(product).State = EntityState.Modified;
-
-            try
-            {
-                await _context.SaveChangesAsync();
-            }
-            catch (DbUpdateConcurrencyException)
-            {
-                if (!ProductExists(id))
-                {
-                    return NotFound();
-                }
-                else
-                {
-                    throw;
-                }
-            }
-
-            return NoContent();
-        }
-
-        // POST: api/Product
-        // To protect from overposting attacks, see https://go.microsoft.com/fwlink/?linkid=2123754
-        [HttpPost]
-        public async Task<ActionResult<Product>> PostProduct(Product product)
-        {
-            _context.Products.Add(product);
-            await _context.SaveChangesAsync();
-
-            return CreatedAtAction("GetProduct", new { id = product.Id }, product);
-        }
-
-        // DELETE: api/Product/5
-        [HttpDelete("{id}")]
-        public async Task<IActionResult> DeleteProduct(long id)
-        {
-            var product = await _context.Products.FindAsync(id);
-            if (product == null)
-            {
-                return NotFound();
-            }
-
-            _context.Products.Remove(product);
-            await _context.SaveChangesAsync();
-
-            return NoContent();
-        }
-
-        private bool ProductExists(long id)
-        {
-            return _context.Products.Any(e => e.Id == id);
-        }
+        await _repository.DeleteAsync(id);
+        return NoContent();
     }
 }

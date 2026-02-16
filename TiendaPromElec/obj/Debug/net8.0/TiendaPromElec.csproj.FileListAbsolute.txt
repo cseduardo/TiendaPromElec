@@ -518,3 +518,5 @@ C:\EjerciciosCertificacion\Reto\TiendaPromElec\TiendaPromElec\obj\Debug\net8.0\r
 C:\EjerciciosCertificacion\Reto\TiendaPromElec\TiendaPromElec\obj\Debug\net8.0\TiendaPromElec.pdb
 C:\EjerciciosCertificacion\Reto\TiendaPromElec\TiendaPromElec\obj\Debug\net8.0\TiendaPromElec.genruntimeconfig.cache
 C:\EjerciciosCertificacion\Reto\TiendaPromElec\TiendaPromElec\obj\Debug\net8.0\ref\TiendaPromElec.dll
+C:\EjerciciosCertificacion\Reto\TiendaPromElec\TiendaPromElec\bin\Debug\net8.0\BCrypt.Net-Next.dll
+C:\EjerciciosCertificacion\Reto\TiendaPromElec\TiendaPromElec\bin\Debug\net8.0\Microsoft.AspNetCore.Authentication.JwtBearer.dll

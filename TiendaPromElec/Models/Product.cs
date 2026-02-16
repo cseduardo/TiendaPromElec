@@ -11,5 +11,5 @@ public class Product
     public int Stock { get; set; }
     public string ImageUrl { get; set; }
     public long CategoryId { get; set; }
-    public Category Category { get; set; }
+    public Category? Category { get; set; }
 }

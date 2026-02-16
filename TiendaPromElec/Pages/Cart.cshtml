@@ -1,0 +1,150 @@
+﻿@page
+@{
+    ViewData["Title"] = "Mi Carrito";
+}
+
+<div class="container mt-4">
+    <h2>Tu Carrito de Compras</h2>
+
+    <div id="emptyCartMsg" class="alert alert-info" style="display:none;">
+        Tu carrito está vacío. <a href="/">Ir a comprar</a>
+    </div>
+
+    <div id="cartContent" style="display:none;">
+        <table class="table table-hover">
+            <thead>
+                <tr>
+                    <th>Producto</th>
+                    <th>Precio</th>
+                    <th>Cantidad</th>
+                    <th>Subtotal</th>
+                    <th>Acción</th>
+                </tr>
+            </thead>
+            <tbody id="cartBody"></tbody>
+            <tfoot>
+                <tr>
+                    <td colspan="3" class="text-end"><strong>Total:</strong></td>
+                    <td id="cartTotal" class="fw-bold"></td>
+                    <td></td>
+                </tr>
+            </tfoot>
+        </table>
+
+        <div class="d-flex justify-content-end gap-2">
+            <button class="btn btn-secondary" onclick="clearCart()">Vaciar Carrito</button>
+            <button class="btn btn-success btn-lg" onclick="processOrder()">
+                <i class="bi bi-credit-card"></i> Finalizar Compra
+            </button>
+        </div>
+    </div>
+</div>
+
+<script>
+    let cart = JSON.parse(localStorage.getItem("cart")) || [];
+
+    document.addEventListener("DOMContentLoaded", loadCart);
+
+    function loadCart() {
+        const tbody = document.getElementById("cartBody");
+        const content = document.getElementById("cartContent");
+        const emptyMsg = document.getElementById("emptyCartMsg");
+
+        if (cart.length === 0) {
+            content.style.display = "none";
+            emptyMsg.style.display = "block";
+            return;
+        }
+
+        content.style.display = "block";
+        emptyMsg.style.display = "none";
+        tbody.innerHTML = "";
+        let total = 0;
+
+        cart.forEach((item, index) => {
+            const subtotal = item.price * item.quantity;
+            total += subtotal;
+
+            tbody.innerHTML += `
+                <tr>
+                    <td>
+                        <img src="${item.imageUrl}" width="50" style="margin-right:10px;">
+                        ${item.name}
+                    </td>
+                    <td>$${item.price}</td>
+                    <td>${item.quantity}</td>
+                    <td>$${subtotal}</td>
+                    <td>
+                        <button class="btn btn-danger btn-sm" onclick="removeItem(${index})"><i class="bi bi-trash"></i></button>
+                    </td>
+                </tr>
+            `;
+        });
+        document.getElementById("cartTotal").innerText = "$" + total;
+    }
+
+    function removeItem(index) {
+        cart.splice(index, 1);
+        localStorage.setItem("cart", JSON.stringify(cart));
+        loadCart();
+        // Actualizar badge del layout si existe
+        if(document.getElementById("cart-badge")) document.getElementById("cart-badge").innerText = cart.length;
+    }
+
+    function clearCart() {
+        if(!confirm("¿Borrar todo?")) return;
+        cart = [];
+        localStorage.setItem("cart", JSON.stringify(cart));
+        loadCart();
+    }
+
+    async function processOrder() {
+        const token = localStorage.getItem("token");
+        if (!token) {
+            alert("Debes iniciar sesión para procesar la compra.");
+            window.location.href = "/Login";
+            return;
+        }
+
+        // Preparar el JSON exacto que pide el Backend
+        const orderPayload = {
+            customerId: 0, // Ignorado por backend
+            items: cart.map(i => ({
+                productId: i.productId,
+                quantity: i.quantity
+            }))
+        };
+
+        try {
+            const response = await fetch('/api/Order', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Bearer ' + token
+                },
+                body: JSON.stringify(orderPayload)
+            });
+
+            if (response.ok) {
+                const result = await response.json();
+
+                // Manejo de advertencias (Stock parcial)
+                if(result.advertencias && result.advertencias.length > 0) {
+                    alert("Orden creada con advertencias:\n" + result.advertencias.join("\n"));
+                } else {
+                    alert("¡Compra realizada con éxito!");
+                }
+
+                // Limpiar y redirigir
+                localStorage.removeItem("cart");
+                window.location.href = "/MyOrders";
+            } else {
+                const error = await response.text();
+                alert("Error al procesar: " + error);
+            }
+        } catch (err) {
+            console.error(err);
+            alert("Error de conexión");
+        }
+    }
+</script>

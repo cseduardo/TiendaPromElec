@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.EntityFrameworkCore;
+using ProductApi.Data;
 using ProductApi.Models;
 
 namespace TiendaPromElec.Pages

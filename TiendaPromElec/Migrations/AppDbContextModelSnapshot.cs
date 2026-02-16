@@ -4,7 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
-using ProductApi.Models;
+using ProductApi.Data;
 
 #nullable disable
 
@@ -76,7 +76,15 @@ namespace TiendaPromElec.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<string>("Password")
+                        .IsRequired()
+                        .HasColumnType("text");
+
                     b.Property<string>("Phone")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Role")
                         .IsRequired()
                         .HasColumnType("text");
 
@@ -87,11 +95,23 @@ namespace TiendaPromElec.Migrations
                     b.HasData(
                         new
                         {
+                            Id = 3L,
+                            Address = "Admin Address 1",
+                            Email = "admin_one@promelec.com",
+                            FullName = "Admin One",
+                            Password = "$2a$11$pZ5LcLatFwTF2JrfxBL9GO1qCmdr4dkl9tp.IL6KTYje.LtF794KO",
+                            Phone = "5550001111",
+                            Role = "Admin"
+                        },
+                        new
+                        {
                             Id = 1L,
                             Address = "Calle Falsa 123, CDMX",
                             Email = "juan.perez@email.com",
                             FullName = "Juan Pérez",
-                            Phone = "5512345678"
+                            Password = "",
+                            Phone = "5512345678",
+                            Role = "Client"
                         },
                         new
                         {
@@ -99,7 +119,9 @@ namespace TiendaPromElec.Migrations
                             Address = "Av. Siempre Viva 742, Monterrey",
                             Email = "ana.garcia@email.com",
                             FullName = "Ana García",
-                            Phone = "8187654321"
+                            Password = "",
+                            Phone = "8187654321",
+                            Role = "Client"
                         });
                 });
 
